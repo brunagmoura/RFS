@@ -1,86 +1,83 @@
-
 import streamlit as st
+import pandas as pd
 import plotly.graph_objects as go
 
 # Configuração da Página
-st.set_page_config(page_title="Regime Fiscal Sustentável", layout="wide")
+st.set_page_config(page_title="Painel Fiscal - Tesouro Nacional", layout="wide")
 
-st.title("🏛️ Regime Fiscal Sustentável (LC 200/2023)")
-st.markdown("### Simulador de Limite de Despesas")
+# Estilo CSS Personalizado (Azul e Cinza)
+st.markdown("""
+    <style>
+    .main {background-color: #f8fafc;}
+    h1, h2, h3 {color: #1e3a8a;}
+    .metric-card {background-color: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-left: 5px solid #1e3a8a;}
+    </style>
+    """, unsafe_allow_html=True)
 
-# Colunas para Inputs
-col1, col2 = st.columns(2)
+st.title("📊 Painel Regime Fiscal Sustentável")
+st.markdown("Dados consolidados: Comparativo 2024, 2025 e projeções 2026")
 
+# --- Dados ---
+data_result = {
+    'Ano': ['2024', '2025'],
+    'Nominal': [-43.0, -61.7],
+    'Ajustado': [-11.0, -13.0]
+}
+df_result = pd.DataFrame(data_result)
+
+data_rap = {
+    'Ano': ['2024', '2025', '2026'],
+    'Estoque_RAP': [285.5, 312.5, 391.5]
+}
+df_rap = pd.DataFrame(data_rap)
+
+# --- Métricas Principais ---
+col1, col2, col3 = st.columns(3)
 with col1:
-    receita_growth = st.slider(
-        "Crescimento Real da Receita (%)", 
-        min_value=-2.0, 
-        max_value=6.0, 
-        value=2.0, 
-        step=0.1
-    )
-
+    st.metric("Resultado Primário 2025 (Nominal)", "R$ -61,7 Bi", "-18,7 Bi vs 2024")
 with col2:
-    meta_cumprida = st.checkbox(
-        "Meta Fiscal do ano anterior cumprida?", 
-        value=True,
-        help="Se a meta for cumprida, o limite é 70% da receita. Se não, cai para 50%."
-    )
+    st.metric("Resultado Ajustado (p/ Meta)", "R$ -13,0 Bi", "Dentro da Banda")
+with col3:
+    st.metric("Estoque Restos a Pagar 2026", "R$ 391,5 Bi", "+25,3%")
 
-# Lógica de Cálculo (Regra do Arcabouço)
-fator = 0.70 if meta_cumprida else 0.50
-crescimento_calculado = receita_growth * fator
-
-# Aplicação do Piso (0.6%) e Teto (2.5%)
-limite_final = max(0.6, min(crescimento_calculado, 2.5))
-
-# Determinação da cor do resultado
-cor_barra = "#3b82f6"  # Blue
-if limite_final == 0.6:
-    status_msg = "Travado no Piso (0.6%)"
-    cor_barra = "#ef4444"  # Red
-elif limite_final == 2.5:
-    status_msg = "Travado no Teto (2.5%)"
-    cor_barra = "#10b981"  # Green
-else:
-    status_msg = f"Calculado ({int(fator*100)}% da Receita)"
-
-# Exibição de Métricas
 st.divider()
-c1, c2, c3 = st.columns(3)
-c1.metric("Fator de Ajuste", f"{int(fator*100)}%", delta="Baseado na Meta")
-c2.metric("Crescimento Calculado", f"{crescimento_calculado:.2f}%", help="Antes do Piso/Teto")
-c3.metric("Limite Final Aplicável", f"{limite_final:.2f}%", delta=status_msg)
 
-# Visualização Gráfica (Plotly)
-fig = go.Figure()
+# --- Gráficos ---
+col_g1, col_g2 = st.columns(2)
 
-# Barra de fundo (Range total visual)
-fig.add_trace(go.Bar(
-    y=['Limite'], x=[3.0], orientation='h', 
-    marker_color='#e2e8f0', hoverinfo='none'
-))
+with col_g1:
+    st.subheader("Resultado Nominal vs. Ajustado")
+    fig1 = go.Figure()
+    fig1.add_trace(go.Bar(
+        x=df_result['Ano'], y=df_result['Nominal'],
+        name='Nominal (Real)', marker_color='#94a3b8', text=df_result['Nominal'], textposition='auto'
+    ))
+    fig1.add_trace(go.Bar(
+        x=df_result['Ano'], y=df_result['Ajustado'],
+        name='Ajustado (Meta)', marker_color='#1e3a8a', text=df_result['Ajustado'], textposition='auto'
+    ))
+    fig1.update_layout(barmode='group', template='plotly_white', legend=dict(orientation="h", y=1.1))
+    st.plotly_chart(fig1, use_container_width=True)
 
-# Barra do Valor Real
-fig.add_trace(go.Bar(
-    y=['Limite'], x=[limite_final], orientation='h',
-    marker_color=cor_barra, text=f"{limite_final:.2f}%", textposition='auto',
-    name='Crescimento Permitido'
-))
+with col_g2:
+    st.subheader("Evolução do Estoque de RAP")
+    fig2 = go.Figure()
+    fig2.add_trace(go.Bar(
+        x=df_rap['Ano'], y=df_rap['Estoque_RAP'],
+        marker_color=['#cbd5e1', '#64748b', '#0f172a'],
+        text=df_rap['Estoque_RAP'], textposition='outside'
+    ))
+    fig2.update_layout(template='plotly_white', yaxis_title="R$ Bilhões")
+    st.plotly_chart(fig2, use_container_width=True)
 
-# Linhas de Piso e Teto
-fig.add_vline(x=0.6, line_width=2, line_dash="dash", line_color="gray", annotation_text="Piso 0.6%")
-fig.add_vline(x=2.5, line_width=2, line_dash="dash", line_color="gray", annotation_text="Teto 2.5%")
+# --- Exceções ---
+st.subheader("Detalhamento das Exceções à Meta")
+st.info("Valores excluídos para fins de cumprimento da meta de resultado primário.")
 
-fig.update_layout(
-    title="Visualização do Espaço Fiscal",
-    xaxis=dict(range=[0, 3.5], title="Crescimento Real (%)"),
-    barmode='overlay',
-    height=250,
-    showlegend=False
-)
-
-st.plotly_chart(fig, use_container_width=True)
-
-st.info("Nota: Este cálculo refere-se ao Art. 5º da LC 200/2023. Exceções constitucionais (Art. 3º) não entram neste limite.")
-                
+df_excecoes = pd.DataFrame({
+    "Categoria": ["Calamidade RS", "Precatórios (>Limite)", "Projetos Defesa/Outros"],
+    "2024 (R$ Bi)": ["31.8", "-", "0.1"],
+    "2025 (R$ Bi)": ["-", "41.1", "7.5"]
+})
+st.table(df_excecoes)
+                    
